@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "outlook-teams-booking",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-09-01",
+  "observability": { "enabled": true },
+
+  // Keep variables and secrets set in the Cloudflare dashboard between deploys.
+  "keep_vars": true,
+
+  // No database_id here on purpose. The Deploy to Cloudflare button and
+  // Workers Builds create the database in your own account. The Worker
+  // creates its own tables on first request.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "outlook-teams-booking"
+    }
+  ]
+}

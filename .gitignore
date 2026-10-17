@@ -1,0 +1,11 @@
+node_modules/
+.wrangler/
+dist/
+
+# Never commit these. Secrets live in Cloudflare, not the repo.
+.dev.vars
+.env
+.env.*
+*.local.sql
+
+.DS_Store

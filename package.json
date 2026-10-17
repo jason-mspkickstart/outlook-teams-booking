@@ -1,0 +1,41 @@
+{
+  "name": "outlook-teams-booking",
+  "version": "1.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Self-hosted booking API for Microsoft 365. Visitors book Teams meetings straight into your Outlook calendar from any website. Runs on Cloudflare Workers.",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250901.0",
+    "typescript": "^5.6.0",
+    "wrangler": "^4.40.0"
+  },
+  "cloudflare": {
+    "bindings": {
+      "MS_TENANT_ID": {
+        "description": "Directory (tenant) ID from your Entra app registration."
+      },
+      "MS_CLIENT_ID": {
+        "description": "Application (client) ID from your Entra app registration."
+      },
+      "MS_CLIENT_SECRET": {
+        "description": "Client secret value from your Entra app registration."
+      },
+      "MAILBOX": {
+        "description": "The mailbox whose calendar takes the bookings, e.g. you@yourdomain.com."
+      },
+      "TURNSTILE_SITE_KEY": {
+        "description": "Cloudflare Turnstile site key. Public, sent to your sites so they can show the widget."
+      },
+      "TURNSTILE_SECRET": {
+        "description": "Cloudflare Turnstile secret key."
+      },
+      "SIGNING_KEY": {
+        "description": "Any long random string. Signs the cancel and reschedule links."
+      }
+    }
+  }
+}
