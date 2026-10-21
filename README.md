@@ -143,7 +143,9 @@ All endpoints take a `site` key (or a booking `token`) and only answer browsers 
 
 ## Good to know
 
-**The invite comes from your main mailbox address.** Graph creates the event in that mailbox, so the organiser is its primary address, whatever site the booking came from. Put the brand in the meeting subject (`invite_subject` supports `{meeting}`, `{site}`, `{host}` and `{name}`) and the per-site confirmation email.
+**The invite comes from your main mailbox address.** Graph creates the event in that mailbox, so the organiser is its primary address, whatever site the booking came from. Put the brand in the meeting subject and the per-site confirmation email instead.
+
+**Personalising emails per site and meeting type.** Each site can have a logo (an https link to a PNG or JPG) shown at the top of its confirmation emails. Each meeting type can have an email message, shown in both the confirmation email and the calendar invite. The invite subject and email message both support `{name}`, `{email}`, `{meeting}`, `{duration}`, `{when}`, `{host}` and `{site}`. Leave a blank line between paragraphs.
 
 **Sending confirmation emails from aliases.** If a site's `sender_email` is an alias on the booking mailbox, `SendFromAliasEnabled` must be on (the setup script does it). Test it with a booking before going live. If the email fails, the booking still goes through and the error shows in the Worker logs.
 

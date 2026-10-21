@@ -152,7 +152,9 @@ var DEF = {
       { n: 'max_days_ahead', l: 'Bookable up to (days ahead)', t: 'number' },
       { n: 'daily_limit', l: 'Max per day', t: 'number', hint: 'Leave blank for no limit' },
       { n: 'sort_order', l: 'Sort order', t: 'number' },
-      { n: 'invite_subject', l: 'Invite subject', wide: true, hint: 'Optional. Use {meeting}, {site}, {host}, {name}. Default: {meeting} with {name}' },
+      { n: 'invite_subject', l: 'Invite subject', wide: true, hint: 'Optional. Default: {meeting} with {name}' },
+      { n: 'email_message', l: 'Email message', t: 'textarea', wide: true, hint: 'Optional. Shown in the confirmation email and the calendar invite. Leave a blank line between paragraphs.' },
+      { n: '__vars', t: 'note', wide: true, text: 'Variables for the subject and message: {name} {email} {meeting} {duration} {when} {host} {site}' },
       { n: 'active', l: 'Active', t: 'check' }
     ]; }
   },
@@ -171,6 +173,7 @@ var DEF = {
       { n: 'allowed_origins', l: 'Allowed domains', t: 'textarea', wide: true, hint: 'Comma separated, no trailing slash. e.g. https://example.com,https://www.example.com,https://*.lovable.app' },
       { n: 'sender_email', l: 'Confirmation email from', hint: 'Blank to skip the confirmation email' },
       { n: 'sender_name', l: 'Sender name' },
+      { n: 'logo_url', l: 'Logo URL', wide: true, hint: 'Optional. https link to a PNG or JPG, shown at the top of confirmation emails. About 200px wide works well.' },
       { n: 'manage_url', l: 'Manage booking page', wide: true, hint: 'Page on the site that handles ?token= for reschedule and cancel' },
       { n: 'active', l: 'Active', t: 'check' }
     ]; }
@@ -229,6 +232,9 @@ function field(f, row) {
   var v = row[f.n];
   var locked = f.lock && row.__existing;
   var input;
+  if (f.t === 'note') {
+    return h('p', { class: 'hint wide', style: 'grid-column: 1 / -1; margin: 0' }, f.text);
+  }
   if (f.t === 'check') {
     return h('label', { class: 'check' }, h('input', { type: 'checkbox', name: f.n, checked: v === 1 || v === true }), f.l);
   } else if (f.t === 'select') {
@@ -250,6 +256,7 @@ function editor(def, row) {
       var out = {};
       if (row[def.pk] != null && row.__existing) out[def.pk] = row[def.pk];
       fields.forEach(function (f) {
+        if (f.t === 'note') return;
         var el = form.elements[f.n];
         out[f.n] = f.t === 'check' ? (el.checked ? 1 : 0) : el.value;
       });

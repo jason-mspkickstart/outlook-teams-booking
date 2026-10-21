@@ -62,7 +62,7 @@ interface TableDef {
 const TABLES: Record<string, TableDef> = {
   sites: {
     pk: 'key', pkType: 'text', order: 'name',
-    cols: { key: 'text', name: 'text', host_name: 'textnull', allowed_origins: 'text', sender_email: 'textnull', sender_name: 'textnull', manage_url: 'textnull', active: 'bool' },
+    cols: { key: 'text', name: 'text', host_name: 'textnull', allowed_origins: 'text', sender_email: 'textnull', sender_name: 'textnull', manage_url: 'textnull', logo_url: 'textnull', active: 'bool' },
   },
   schedules: {
     pk: 'key', pkType: 'text', order: 'name',
@@ -77,7 +77,7 @@ const TABLES: Record<string, TableDef> = {
     cols: {
       site_key: 'text', slug: 'text', name: 'text', description: 'textnull', duration_mins: 'int',
       buffer_before_mins: 'int', buffer_after_mins: 'int', min_notice_hours: 'int', max_days_ahead: 'int',
-      slot_step_mins: 'int', daily_limit: 'intnull', schedule_key: 'text', invite_subject: 'textnull',
+      slot_step_mins: 'int', daily_limit: 'intnull', schedule_key: 'text', invite_subject: 'textnull', email_message: 'textnull',
       sort_order: 'int', active: 'bool',
     },
   },
@@ -120,6 +120,7 @@ const SLUG = /^[a-z0-9][a-z0-9-]*$/;
 
 function extraChecks(table: string, row: Record<string, any>) {
   if (table === 'sites' && !SLUG.test(row.key)) throw new HttpError(400, 'Site key must be lowercase letters, numbers and hyphens');
+  if (table === 'sites' && row.logo_url && !/^https:\/\//.test(row.logo_url)) throw new HttpError(400, 'Logo URL must start with https://');
   if (table === 'schedules') {
     if (!SLUG.test(row.key)) throw new HttpError(400, 'Schedule key must be lowercase letters, numbers and hyphens');
     if (!isTimeZone(row.timezone)) throw new HttpError(400, `'${row.timezone}' isn't a valid time zone, e.g. Europe/London`);

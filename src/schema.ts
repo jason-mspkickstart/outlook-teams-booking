@@ -9,6 +9,7 @@ export const SCHEMA = [
     sender_email TEXT,
     sender_name TEXT,
     manage_url TEXT,
+    logo_url TEXT,
     active INTEGER NOT NULL DEFAULT 1
   )`,
   `CREATE TABLE IF NOT EXISTS schedules (
@@ -45,6 +46,7 @@ export const SCHEMA = [
     daily_limit INTEGER,
     schedule_key TEXT NOT NULL DEFAULT 'default',
     invite_subject TEXT,
+    email_message TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0,
     active INTEGER NOT NULL DEFAULT 1,
     UNIQUE (site_key, slug)
@@ -80,4 +82,11 @@ export const SCHEMA = [
   )`,
   `CREATE INDEX IF NOT EXISTS idx_bookings_time ON bookings (start_utc, end_utc)`,
   `CREATE INDEX IF NOT EXISTS idx_bookings_type_day ON bookings (meeting_type_id, local_date)`,
+];
+
+// Columns added after the first release. Each runs once; 'duplicate column' errors are ignored,
+// so databases created before these existed are upgraded automatically.
+export const MIGRATIONS = [
+  `ALTER TABLE sites ADD COLUMN logo_url TEXT`,
+  `ALTER TABLE meeting_types ADD COLUMN email_message TEXT`,
 ];

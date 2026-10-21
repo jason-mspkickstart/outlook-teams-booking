@@ -4,7 +4,7 @@ import {
 } from './util';
 import { computeSlots, localDate, localToUtc, addDays } from './slots';
 import * as graph from './graph';
-import { SCHEMA } from './schema';
+import { SCHEMA, MIGRATIONS } from './schema';
 import { handleAdmin } from './admin';
 
 interface Site {
@@ -15,6 +15,7 @@ interface Site {
   sender_email: string | null;
   sender_name: string | null;
   manage_url: string | null;
+  logo_url: string | null;
   active: number;
 }
 
@@ -33,6 +34,7 @@ interface MeetingType {
   daily_limit: number | null;
   schedule_key: string;
   invite_subject: string | null;
+  email_message: string | null;
 }
 
 interface Schedule {
@@ -66,6 +68,13 @@ let schemaReady = false;
 async function ensureSchema(env: Env) {
   if (schemaReady) return;
   await env.DB.batch(SCHEMA.map((s) => env.DB.prepare(s)));
+  for (const m of MIGRATIONS) {
+    try {
+      await env.DB.prepare(m).run();
+    } catch (e) {
+      if (!/duplicate column/i.test(String(e))) throw e;
+    }
+  }
   schemaReady = true;
 }
 
@@ -239,22 +248,48 @@ function manageLink(site: Site, token: string): string | null {
   return u.toString();
 }
 
-function inviteSubject(type: MeetingType, site: Site, name: string): string {
-  return (type.invite_subject || '{meeting} with {name}')
-    .replace(/\{meeting\}/g, type.name)
-    .replace(/\{site\}/g, site.name)
-    .replace(/\{host\}/g, site.host_name || site.name)
-    .replace(/\{name\}/g, name);
+interface VarCtx {
+  name: string;
+  email: string;
+  start: number;
+  tz: string;
 }
 
-function inviteHtml(site: Site, type: MeetingType, name: string, email: string, answers: Answer[], link: string | null): string {
+/** Fills {meeting} {site} {host} {name} {email} {when} {duration} in a template. Plain text in, plain text out. */
+function fillVars(tpl: string, type: MeetingType, site: Site, c: VarCtx): string {
+  const vals: Record<string, string> = {
+    meeting: type.name,
+    site: site.name,
+    host: site.host_name || site.name,
+    name: c.name,
+    email: c.email,
+    when: formatWhen(c.start, c.tz),
+    duration: `${type.duration_mins} minutes`,
+  };
+  return tpl.replace(/\{(\w+)\}/g, (m, k) => (k in vals ? vals[k] : m));
+}
+
+/** The meeting type's email message, filled in and turned into safe HTML paragraphs. */
+function messageHtml(type: MeetingType, site: Site, c: VarCtx): string {
+  if (!type.email_message?.trim()) return '';
+  return fillVars(type.email_message.trim(), type, site, c)
+    .split(/\n\s*\n/)
+    .map((para) => `<p>${escapeHtml(para).replace(/\n/g, '<br>')}</p>`)
+    .join('');
+}
+
+function inviteSubject(type: MeetingType, site: Site, c: VarCtx): string {
+  return fillVars(type.invite_subject || '{meeting} with {name}', type, site, c);
+}
+
+function inviteHtml(site: Site, type: MeetingType, c: VarCtx, answers: Answer[], link: string | null): string {
   const rows = answers
     .filter((a) => a.value)
     .map((a) => `<p><strong>${escapeHtml(a.label)}</strong><br>${escapeHtml(a.value).replace(/\n/g, '<br>')}</p>`)
     .join('');
   return `
-    <p>${escapeHtml(type.name)} booked through ${escapeHtml(site.name)}.</p>
-    <p><strong>Booked by</strong><br>${escapeHtml(name)} (${escapeHtml(email)})</p>
+    ${messageHtml(type, site, c) || `<p>${escapeHtml(type.name)} with ${escapeHtml(site.host_name || site.name)}.</p>`}
+    <p><strong>Booked by</strong><br>${escapeHtml(c.name)} (${escapeHtml(c.email)})</p>
     ${rows}
     ${link ? `<p>Need to change it? <a href="${escapeHtml(link)}">Reschedule or cancel</a></p>` : ''}
   `;
@@ -280,9 +315,15 @@ async function sendNotice(
     moved: `Hi ${escapeHtml(b.name)}, your <strong>${escapeHtml(type.name)}</strong> with ${host} has moved.`,
     cancelled: `Hi ${escapeHtml(b.name)}, your <strong>${escapeHtml(type.name)}</strong> with ${host} has been cancelled.`,
   };
+  const logo = site.logo_url && /^https:\/\//.test(site.logo_url)
+    ? `<p><img src="${escapeHtml(site.logo_url)}" alt="${escapeHtml(site.name)}" style="max-height:48px;max-width:220px;height:auto"></p>`
+    : '';
+  const message = kind === 'cancelled' ? '' : messageHtml(type, site, { name: b.name, email: b.email, start: b.start, tz: b.tz });
   const html = `
+    ${logo}
     <p>${intro[kind]}</p>
     ${kind === 'cancelled' ? '' : `<p><strong>When:</strong> ${when}</p>`}
+    ${message}
     ${kind !== 'cancelled' && b.joinUrl ? `<p><a href="${escapeHtml(b.joinUrl)}">Join the Teams meeting</a></p>` : ''}
     ${kind !== 'cancelled' ? '<p>A calendar invite is on its way separately.</p>' : ''}
     ${kind !== 'cancelled' && b.link ? `<p>Need to change it? <a href="${escapeHtml(b.link)}">Reschedule or cancel</a></p>` : ''}
@@ -376,8 +417,8 @@ async function postBook(env: Env, req: Request, ctx: ExecutionContext, origin: s
   let event: { id: string; joinUrl: string | null };
   try {
     event = await graph.createEvent(env, {
-      subject: inviteSubject(type, site, name),
-      html: inviteHtml(site, type, name, email, answers, link),
+      subject: inviteSubject(type, site, { name, email, start, tz: visitorTz ?? sched.timezone }),
+      html: inviteHtml(site, type, { name, email, start, tz: visitorTz ?? sched.timezone }, answers, link),
       start,
       end,
       name,
