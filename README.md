@@ -91,14 +91,14 @@ The admin page at `/admin` lets you manage sites, hours, meeting types, time off
 You need a custom domain on the Worker first (step 4).
 
 1. Cloudflare dashboard > **Zero Trust**. If it's your first time, pick a team name and the Free plan
-2. **Settings > Authentication**: make sure **One-time PIN** is listed under login methods (add it if not)
+2. **Integrations > Identity providers**: make sure **One-time PIN** is listed (if not, **Add new identity provider > One-time PIN**)
 3. **Access > Applications > Add an application > Self-hosted**
    - Application domain: your Worker's domain, path `admin`
    - Add a policy: Action **Allow**, Include **Emails**, your email address
    - Login methods: **One-time PIN**
 4. Save, then open the application again and copy the **Application Audience (AUD) Tag** from its overview
 5. In the Worker's **Settings > Variables and Secrets**, add:
-   - `ACCESS_TEAM_DOMAIN`: your team domain, e.g. `yourteam.cloudflareaccess.com` (shown under **Settings > Custom pages** in Zero Trust)
+   - `ACCESS_TEAM_DOMAIN`: your team domain, e.g. `yourteam.cloudflareaccess.com` (shown under **Settings** in Zero Trust, as your team name or team domain)
    - `ACCESS_AUD`: the AUD tag from step 4
 6. Visit `https://<your-worker-domain>/admin`, enter your email, then the code it sends you
 
