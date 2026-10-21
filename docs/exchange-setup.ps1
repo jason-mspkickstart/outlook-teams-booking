@@ -1,30 +1,50 @@
 # Limits the booking app to ONE mailbox using Exchange Online RBAC for Applications.
 # Without this, an app with Calendars.ReadWrite could read and write every calendar in your tenant.
 #
-# Run in PowerShell as an Exchange admin. Fill in the four values first.
+# Run in PowerShell as a Global or Exchange admin. Fill in the two values first.
+# Safe to run again if something fails part way.
 
 $AppId       = "00000000-0000-0000-0000-000000000000"  # Application (client) ID from the app registration
-$ObjectId    = "00000000-0000-0000-0000-000000000000"  # Object ID from Entra > Enterprise applications (NOT the app registration)
 $Mailbox     = "you@yourdomain.com"                    # The calendar that takes bookings (same as MAILBOX)
 $DisplayName = "Outlook Teams Booking"
+$ScopeName   = "$DisplayName Scope"
 
-Install-Module ExchangeOnlineManagement -Scope CurrentUser   # skip if already installed
+# Modules (skip the installs if you already have them)
+Install-Module ExchangeOnlineManagement -Scope CurrentUser
+Install-Module Microsoft.Graph.Applications -Scope CurrentUser
+
+# 1. Find the enterprise application's Object ID. This is NOT the Object ID on the
+#    app registration page, which is the usual cause of "ServicePrincipalNotFound".
+Connect-MgGraph -Scopes "Application.ReadWrite.All"
+$sp = Get-MgServicePrincipal -Filter "appId eq '$AppId'"
+if (-not $sp) { $sp = New-MgServicePrincipal -AppId $AppId }
+$ObjectId = $sp.Id
+Write-Host "Enterprise app Object ID: $ObjectId"
+
 Connect-ExchangeOnline
 
-# 1. Tell Exchange about the app
-New-ServicePrincipal -AppId $AppId -ObjectId $ObjectId -DisplayName $DisplayName
+# 2. Tell Exchange about the app
+if (-not (Get-ServicePrincipal -Identity $AppId -ErrorAction SilentlyContinue)) {
+    New-ServicePrincipal -AppId $AppId -ObjectId $ObjectId -DisplayName $DisplayName
+}
 
-# 2. A scope containing just the booking mailbox
-New-ManagementScope -Name "$DisplayName Scope" -RecipientRestrictionFilter "PrimarySmtpAddress -eq '$Mailbox'"
+# 3. A scope containing just the booking mailbox
+if (-not (Get-ManagementScope -Identity $ScopeName -ErrorAction SilentlyContinue)) {
+    New-ManagementScope -Name $ScopeName -RecipientRestrictionFilter "PrimarySmtpAddress -eq '$Mailbox'"
+}
 
-# 3. Grant calendar and send mail rights, limited to that scope
-New-ManagementRoleAssignment -App $AppId -Role "Application Calendars.ReadWrite" -CustomResourceScope "$DisplayName Scope"
-New-ManagementRoleAssignment -App $AppId -Role "Application Mail.Send" -CustomResourceScope "$DisplayName Scope"
+# 4. Grant calendar and send mail rights, limited to that scope
+foreach ($role in "Application Calendars.ReadWrite", "Application Mail.Send") {
+    $existing = Get-ManagementRoleAssignment -RoleAssignee $ObjectId -Role $role -ErrorAction SilentlyContinue
+    if (-not $existing) {
+        New-ManagementRoleAssignment -App $AppId -Role $role -CustomResourceScope $ScopeName
+    }
+}
 
-# 4. Optional: allow sending from aliases (needed for per-site sender addresses)
+# 5. Allow sending from aliases (needed if sites send confirmation emails from alias addresses)
 Set-OrganizationConfig -SendFromAliasEnabled $true
 
-# 5. Check it worked. Should show InScope = True for both roles.
+# 6. Check it worked. Both rows should show InScope = True.
 Test-ServicePrincipalAuthorization -Identity $AppId -Resource $Mailbox
 
 # Permission changes can take 30 minutes or so to apply.

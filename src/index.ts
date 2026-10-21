@@ -5,6 +5,7 @@ import {
 import { computeSlots, localDate, localToUtc, addDays } from './slots';
 import * as graph from './graph';
 import { SCHEMA } from './schema';
+import { handleAdmin } from './admin';
 
 interface Site {
   key: string;
@@ -509,6 +510,11 @@ export default {
         throw new HttpError(500, `Missing required settings: ${missing.join(', ')}. Bindings this Worker can see: ${visible}`);
       }
       await ensureSchema(env);
+
+      if (url.pathname === '/admin' || url.pathname.startsWith('/admin/')) {
+        // Same origin only, so no CORS headers added.
+        return await handleAdmin(req, env, () => { originCache = null; });
+      }
 
       if (req.method === 'OPTIONS') {
         if (!(await anySiteAllows(env, origin))) return new Response(null, { status: 403 });
