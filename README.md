@@ -48,7 +48,7 @@ You'll need a Microsoft 365 business plan that includes Exchange and Teams (Busi
 
 ### 2. Limit it to your mailbox
 
-Open [`docs/exchange-setup.ps1`](docs/exchange-setup.ps1), fill in the four values at the top and run it as an Exchange admin. You'll need the **Object ID** from **Entra > Enterprise applications > your app**, which is different from the one on the app registration.
+Open [`docs/exchange-setup.ps1`](docs/exchange-setup.ps1), fill in your client ID and mailbox at the top, and paste it into PowerShell as a Global or Exchange admin. It finds the enterprise app's Object ID for you, which is the usual sticking point, and it's safe to run again if anything fails part way. Don't save your filled-in copy into the repo.
 
 This gives the app `Calendars.ReadWrite` and `Mail.Send` on the booking mailbox only, and nothing else in your tenant. Allow half an hour or so for it to take effect.
 
@@ -84,9 +84,31 @@ Optional but worth doing: add a custom domain such as `book.yourdomain.com` unde
 
 </details>
 
-### 5. Add your sites and availability
+### 5. Switch on the admin page
 
-Go to **Storage & Databases > D1 > outlook-teams-booking > Console**. Open [`docs/example-data.sql`](docs/example-data.sql), change the values to yours and run it. It's commented line by line.
+The admin page at `/admin` lets you manage sites, hours, meeting types, time off, questions and bookings with forms instead of SQL. It's off until you put it behind Cloudflare Access, and the Worker checks the Access login itself, so it can't be reached any other way.
+
+You need a custom domain on the Worker first (step 4).
+
+1. Cloudflare dashboard > **Zero Trust**. If it's your first time, pick a team name and the Free plan
+2. **Settings > Authentication**: make sure **One-time PIN** is listed under login methods (add it if not)
+3. **Access > Applications > Add an application > Self-hosted**
+   - Application domain: your Worker's domain, path `admin`
+   - Add a policy: Action **Allow**, Include **Emails**, your email address
+   - Login methods: **One-time PIN**
+4. Save, then open the application again and copy the **Application Audience (AUD) Tag** from its overview
+5. In the Worker's **Settings > Variables and Secrets**, add:
+   - `ACCESS_TEAM_DOMAIN`: your team domain, e.g. `yourteam.cloudflareaccess.com` (shown under **Settings > Custom pages** in Zero Trust)
+   - `ACCESS_AUD`: the AUD tag from step 4
+6. Visit `https://<your-worker-domain>/admin`, enter your email, then the code it sends you
+
+Worth turning off the Worker's `workers.dev` URL too (**Settings > Domains & Routes**), so the custom domain is the only way in.
+
+### 6. Add your sites and availability
+
+The easy way is the admin page: add a site, then an Hours set, then a meeting type. Anything already in your Outlook calendar is blocked automatically, so holidays and days off can just go in Outlook.
+
+If you'd rather use SQL, go to **Storage & Databases > D1 > outlook-teams-booking > Console**. Open [`docs/example-data.sql`](docs/example-data.sql), change the values to yours and run it. It's commented line by line.
 
 The short version of the tables:
 
@@ -99,7 +121,7 @@ The short version of the tables:
 
 After that, day to day changes are a one line edit in the D1 table view, or see [`docs/cheatsheet.sql`](docs/cheatsheet.sql).
 
-### 6. Build the booking page
+### 7. Build the booking page
 
 The API is plain JSON over `fetch`, so any site can use it. If your site is built in Lovable, [`docs/lovable-prompt.md`](docs/lovable-prompt.md) has a prompt that builds the booking and manage pages for you.
 

@@ -7,6 +7,9 @@ export interface Env {
   TURNSTILE_SITE_KEY: string;
   TURNSTILE_SECRET: string;
   SIGNING_KEY: string;
+  // Optional. Both needed to switch on the /admin page.
+  ACCESS_TEAM_DOMAIN?: string;
+  ACCESS_AUD?: string;
 }
 
 export const REQUIRED = [
